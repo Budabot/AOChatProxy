@@ -70,6 +70,7 @@
 							<goal>copy-dependencies</goal>
 						</goals>
 						<configuration>
+							<includeScope>runtime</includeScope>
 							<outputDirectory>
 								${project.build.directory}/release/lib
 							</outputDirectory>
