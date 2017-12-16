@@ -1,22 +1,13 @@
 package com.jkbff.ao.chatproxy
 
-import java.io.FileInputStream
+import java.net.{ServerSocket, Socket}
 import java.util.Properties
-import java.net.ServerSocket
-import java.net.Socket
 
-import org.apache.log4j.Logger
+import com.jkbff.ao.tyrlib.chat.{AOSocket, AOSocketExtended, AOSocketInfo, MMDBParser}
 import org.apache.log4j.Logger._
-import org.apache.log4j.PropertyConfigurator
-
-import scala.collection.mutable.HashMap
-
-import com.jkbff.ao.tyrlib.chat.{ AOSocket, AOSocketInfo }
-import com.jkbff.ao.tyrlib.packets.BaseClientPacket
-import com.jkbff.ao.tyrlib.chat.MMDBParser
 
 object Program {
-	private var bots: HashMap[String, AOSocket] = null
+	private var bots: Map[String, AOSocket] = _
 
 	private val log = getLogger("com.jkbff.ao.chatproxy.Program")
 
@@ -26,14 +17,11 @@ object Program {
 
 	def run(): Unit = {
 		// tell the lib where to find the text.mdb file
-		MMDBParser.fileLocation = "text.mdb";
-
-		// initialize the log4j component
-		PropertyConfigurator.configure("log4j.xml");
+		MMDBParser.fileLocation = "text.mdb"
 
 		// load the properties file for the bot info
-		val properties = new Properties();
-		properties.load(new FileInputStream("chatbot.properties"));
+		val properties = new Properties()
+		properties.load(this.getClass.getResourceAsStream("/chatbot.properties"))
 
 		val serverSocket = new ServerSocket(properties.getProperty("proxyPortNumber").toInt)
 
@@ -45,62 +33,64 @@ object Program {
 				socket = serverSocket.accept
 
 				val clientHandler = new ClientHandler
-				clientHandler.mainBotCharacter = properties.getProperty("bot1_characterName")
 
-				bots = createBots(properties, clientHandler);
+				bots = createBots(properties, clientHandler)
 
 				clientHandler.socket = socket
-				clientHandler.bots = bots;
+				clientHandler.bots = bots
 				clientHandler.setName("clientHandler")
-				clientHandler.start
+				clientHandler.start()
 
 				// check to make sure everything is running
 				do {
 					Thread.sleep(5000)
 				} while (clientHandler.isRunning)
 			} catch {
-				case e: Exception => {
-					socket.close
+				case e: Exception =>
+					socket.close()
 					log.error("master bot connection ended", e)
-				}
 			}
 
-			shutdownBots
-			socket.close
+			shutdownBots()
+			socket.close()
 		}
 	}
 
-	def createBots(properties: Properties, clientHandler: ClientHandler): HashMap[String, AOSocket] = {
-		var count = 1
-		val bots = new HashMap[String, AOSocket];
+	def createBots(properties: Properties, clientHandler: ClientHandler): Map[String, AOSocket] = {
+		val serverAddress = properties.getProperty("serverAddress")
+		val serverPort = Integer.parseInt(properties.getProperty("serverPortNumber"))
 
-		while (properties.getProperty("bot" + count + "_characterName") != null) {
-			val botName = "bot" + count + "_";
+		val mainBot = new AOSocketExtended(new AOSocketInfo("", "", "", serverAddress, serverPort), clientHandler)
+
+		Iterator.from(1).takeWhile(id => properties.getProperty("slave" + id + "_characterName") != null).map{ id =>
+			val username = properties.getProperty("slave" + id + "_username")
+			val password = properties.getProperty("slave" + id + "_password")
+			val characterName = properties.getProperty("slave" + id + "_characterName")
 
 			// create the connection
-			val conn = new AOSocket(new AOSocketInfo(
-				properties.getProperty(botName + "username"),
-				properties.getProperty(botName + "password"),
-				properties.getProperty(botName + "characterName"),
-				properties.getProperty("serverAddress"),
-				Integer.parseInt(properties.getProperty("serverPortNumber"))), clientHandler);
+			val conn = new AOSocket(
+				new AOSocketInfo(
+					username,
+					password,
+					characterName,
+					serverAddress,
+					serverPort),
+				clientHandler)
 
 			// set the login info
-			val id = if (count != 1) "slave" + (count - 1) else "main"
-			conn.setName(id);
-			bots.put(id, conn);
+			val name = "slave" + id
+			conn.setName(name)
 
-			log.debug("created proxy bot " + properties.getProperty(botName + "characterName"))
+			log.debug("initialized character '" + characterName + "' as " + name)
 
-			count += 1
-		}
-		bots
+			(name, conn)
+		}.toMap + ("main" -> mainBot)
 	}
 
 	def shutdownBots(): Unit = {
 		// shutdown any currently running bots
 		if (bots != null) {
-			bots.values.par.foreach(bot => bot.shutdown)
+			bots.values.par.foreach(bot => bot.shutdown())
 		}
 	}
 }
