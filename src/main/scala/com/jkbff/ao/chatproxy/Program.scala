@@ -21,7 +21,7 @@ object Program {
 
 		// load the properties file for the bot info
 		val properties = new Properties()
-		properties.load(this.getClass.getResourceAsStream("/chatbot.properties"))
+		properties.load(this.getClass.getResourceAsStream("/config.properties"))
 
 		val serverSocket = new ServerSocket(properties.getProperty("proxyPortNumber").toInt)
 
@@ -79,7 +79,6 @@ object Program {
 
 			// set the login info
 			val name = "slave" + id
-			conn.setName(name)
 
 			log.debug("initialized character '" + characterName + "' as " + name)
 

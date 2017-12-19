@@ -25,7 +25,7 @@ class ClientHandler extends Thread with ChatPacketHandler {
 	var out: OutputStream = _
 	var bots: Map[String, AOSocket] = _
 
-	val friendlist = new mutable.HashMap[AOSocket, mutable.HashMap[Long, String]]
+	val friendlist = new mutable.HashMap[AOSocket, mutable.Set[Long]]
 
 	override def run() {
 		try {
@@ -58,20 +58,20 @@ class ClientHandler extends Thread with ChatPacketHandler {
 		var currentBot: AOSocket = null
 		var currentCount = 1000
 		friendlist.synchronized {
-			for ((bot, value) <- friendlist) {
-				if (friendlist(bot).contains(packet.getCharId)) {
-					log_master.debug("buddy re-added")
+			for ((bot, buddies) <- friendlist) {
+				if (buddies.contains(packet.getCharId)) {
+					log_master.debug("buddy re-added to" + bot.getName)
 					bot.sendPacket(packet)
-					return ;
-				} else if (value.size < currentCount && bot.getCharacterId != packet.getCharId) {
+					return
+				} else if (buddies.size < currentCount && bot.getCharacterId != packet.getCharId) {
 					currentBot = bot
-					currentCount = value.size
+					currentCount = buddies.size
 				}
 			}
 
 			if (currentBot != null) {
-				log_master.debug("buddy added")
-				friendlist(currentBot)(packet.getCharId) = ""
+				log_master.debug("buddy added to " + currentBot.getName)
+				friendlist(currentBot) += packet.getCharId
 				currentBot.sendPacket(packet)
 			}
 		}
@@ -81,7 +81,7 @@ class ClientHandler extends Thread with ChatPacketHandler {
 		friendlist.synchronized {
 			for ((bot, slaveBotList) <- friendlist) {
 				if (slaveBotList.contains(packet.getCharId)) {
-					log_master.debug("buddy removed")
+					log_master.debug("buddy removed from " + bot.getName)
 					bot.sendPacket(packet)
 				}
 			}
@@ -97,7 +97,8 @@ class ClientHandler extends Thread with ChatPacketHandler {
 		if (bots != null) {
 			friendlist.synchronized {
 				for ((name, bot) <- bots) {
-					friendlist(bot) = new mutable.HashMap[Long, String]
+					friendlist(bot) = mutable.Set[Long]()
+					bot.setName(name)
 					if (!bot.isAlive) {
 						log_master.info("starting proxy bot " + name)
 						bot.start()
@@ -132,12 +133,12 @@ class ClientHandler extends Thread with ChatPacketHandler {
 			friendlist.find(x => x._1 != bot && x._2.contains(packet.getCharId)) match {
 				case Some(_) =>
 					// if buddy is already register on another bot, remove it from this one
-					log_master.info("duplicate buddy detected and removed: " + packet)
+					log_master.info("duplicate buddy detected and removed on " + bot.getName + ": " + packet)
 					friendlist(bot).remove(packet.getCharId)
 					bot.sendPacket(new FriendRemove(packet.getCharId))
 				case None =>
 					// otherwise forward packet to master bot
-					friendlist(bot)(packet.getCharId) = ""
+					friendlist(bot) += packet.getCharId
 					sendPacketToMasterBot(packet)
 			}
 		}
