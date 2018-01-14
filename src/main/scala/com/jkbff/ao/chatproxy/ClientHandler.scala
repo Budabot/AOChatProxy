@@ -12,13 +12,8 @@ import org.apache.log4j.Logger._
 import scala.collection.mutable
 
 class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket) extends Thread {
-	object ConnectionState extends Enumeration {
-		type ConnectionState = Value
-		val DISCONNECTED, SENT_SEED, SENT_CHAR_LIST, CONNECTED = Value
-	}
-
 	private val log_master = getLogger("com.jkbff.ao.chatproxy.ClientHandler.master")
-	val serverPacketFactory = new ServerPacketFactory
+	val serverPacketFactory = new BasicServerPacketFactory
 
 	var in: DataInputStream = _
 	var out: OutputStream = _
@@ -36,7 +31,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	val friendlist = new mutable.HashMap[BotManager, mutable.Set[Long]]
 	val clientPacketFactory = new ClientPacketFactory
 
-	override def run() {
+	override def run(): Unit = {
 		try {
 			in = new DataInputStream(socket.getInputStream)
 			out = socket.getOutputStream
@@ -133,7 +128,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		bots(botId).sendPacket(packet)
 	}
 
-	def processPacket(packet: server.FriendUpdate, bot: BotManager): Unit = {
+	def addBuddy(packet: server.FriendUpdate, bot: BotManager): Unit = {
 		friendlist.synchronized {
 			friendlist.find(x => x._1 != bot && x._2.contains(packet.getCharId)) match {
 				case Some(_) =>
@@ -149,7 +144,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		}
 	}
 
-	def processPacket(packet: server.FriendRemove, bot: BotManager): Unit = {
+	def removeBuddy(packet: server.FriendRemove, bot: BotManager): Unit = {
 		friendlist.synchronized {
 			if (friendlist(bot).contains(packet.getCharId)) {
 				friendlist(bot).remove(packet.getCharId)
@@ -164,11 +159,11 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
         // send login ok
         sendPacketToMasterBot(p)
 			case p: server.FriendUpdate =>
-				processPacket(p, bot)
+				addBuddy(p, bot)
 			case p: server.FriendRemove =>
-				processPacket(p, bot)
+				removeBuddy(p, bot)
 			case p: server.CharacterUpdate =>
-				sendPacketToMasterBot(packet)
+				sendPacketToMasterBot(p)
 			case _ if bot.id == "main" =>
 				// if packet came from main bot connection and
 				// if packet isn't a packet that requires special handling (cases above)
@@ -179,7 +174,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		}
 	}
 
-	def shutdown() {
+	def shutdown(): Unit = {
 		log_master.info("Shutting down client handler")
 		shouldStop = true
 		bots.foreach(_._2.close())
@@ -188,7 +183,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		socket.close()
 	}
 
-	def isRunning: Boolean = {
+	def isRunning(): Boolean = {
 		this.isAlive && bots.values.forall(_.isAlive)
 	}
 }
