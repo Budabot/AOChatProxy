@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.jkbff.ao</groupId>
 	<artifactId>aochatproxy</artifactId>
-	<version>2.0</version>
+	<version>2.1</version>
 
 	<properties>
 		<encoding>UTF-8</encoding>
@@ -27,7 +27,7 @@
 		<dependency>
 			<groupId>com.jkbff.ao</groupId>
 			<artifactId>tyrlib</artifactId>
-			<version>1.1</version>
+			<version>1.8</version>
 		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
