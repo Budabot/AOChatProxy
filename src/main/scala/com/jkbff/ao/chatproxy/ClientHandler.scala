@@ -1,9 +1,8 @@
 package com.jkbff.ao.chatproxy
 
-import java.io._
 import java.net.Socket
 
-import com.jkbff.ao.tyrlib.chat.socket.{AOClientSocket, ClientPacketFactory, ServerPacketFactory}
+import com.jkbff.ao.tyrlib.chat.socket._
 import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, FriendRemove, FriendUpdate, LoginSelect}
 import com.jkbff.ao.tyrlib.packets.server
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
@@ -11,13 +10,12 @@ import org.apache.log4j.Logger._
 
 import scala.collection.mutable
 
-class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket) extends Thread {
-	private val log_master = getLogger("com.jkbff.ao.chatproxy.ClientHandler.master")
-	val serverPacketFactory = new BasicServerPacketFactory
+class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket) extends Thread with Closeable {
+	private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
 
-	var in: DataInputStream = _
-	var out: OutputStream = _
-	var shouldStop = false
+	val clientPacketFactory = new ClientPacketFactory
+	val serverPacketFactory = new ServerPacketFactory
+
 	val bots: Map[String, BotManager] = botInfo.map { case (id, info) =>
 		(id,
 			new SlaveBotManager(
@@ -25,22 +23,33 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 				info.username,
 				info.password,
 				info.characterName,
-				new AOClientSocket(id, new Socket(serverAddress, serverPort), serverPacketFactory), this))
-	} + (("main", new BotManager("main", new AOClientSocket("main", new Socket(serverAddress, serverPort), serverPacketFactory), this)))
+				serverAddress,
+				serverPort,
+				serverPacketFactory,
+				this))
+	} + (("main", new BotManager("main", serverAddress, serverPort, serverPacketFactory, this)))
 
-	val friendlist = new mutable.HashMap[BotManager, mutable.Set[Long]]
-	val clientPacketFactory = new ClientPacketFactory
+	val masterBot = new AOServerSocket("master", socket, clientPacketFactory, this)
+	val buddyList = new mutable.HashMap[BotManager, mutable.Set[Long]]
+	var shouldStop = false
+
+	// masterBot - connection to running Budabot (all requests originate from here)
+	// mainBot - connection to AO Servers on behalf of masterBot/Budabot (most requests that aren't buddy-related go to this connection)
 
 	override def run(): Unit = {
 		try {
-			in = new DataInputStream(socket.getInputStream)
-			out = socket.getOutputStream
-
 			bots("main").start()
+			masterBot.start()
 
 			while (!shouldStop) {
-				val packet = readPacketFromMaster()
+				val packet = masterBot.readPacket()
+				if (packet != null) {
+					logger.debug("FROM MASTER " + packet)
+				}
+
 				packet match {
+					case null =>
+							// do nothing
 					case p: LoginSelect =>
 						sendPacketToServer(p, "main")
 						startSlaveBots()
@@ -53,19 +62,20 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 				}
 			}
 		} catch {
-			case e: Exception => log_master.error("", e)
+			case e: Exception =>
+				logger.error("", e)
 		} finally {
-			shutdown()
+			close()
 		}
 	}
 
 	private def addBuddy(packet: FriendUpdate): Unit = {
 		var currentBot: BotManager = null
 		var currentCount = 1000
-		friendlist.synchronized {
-			for ((bot, buddies) <- friendlist) {
+		buddyList.synchronized {
+			for ((bot, buddies) <- buddyList) {
 				if (buddies.contains(packet.getCharId)) {
-					log_master.debug("buddy re-added to " + bot.getId)
+					logger.debug("buddy re-added to " + bot.id)
 					bot.sendPacket(packet)
 					return
 				//} else if (buddies.size < currentCount && bot.getCharacterId != packet.getCharId) {
@@ -76,20 +86,20 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 			}
 
 			if (currentBot != null) {
-				log_master.debug("buddy added to " + currentBot.getId)
-				friendlist(currentBot) += packet.getCharId
+				logger.debug("buddy added to " + currentBot.id)
+				buddyList(currentBot) += packet.getCharId
 				currentBot.sendPacket(packet)
 			} else {
-        log_master.warn("Could not add buddy for char_id " + packet.getCharId)
+        logger.warn("Could not add buddy for char_id " + packet.getCharId)
       }
 		}
 	}
 
 	private def remBuddy(packet: FriendRemove): Unit = {
-		friendlist.synchronized {
-			for ((bot, slaveBotList) <- friendlist) {
+		buddyList.synchronized {
+			for ((bot, slaveBotList) <- buddyList) {
 				if (slaveBotList.contains(packet.getCharId)) {
-					log_master.debug("buddy removed from " + bot.getId)
+					logger.debug("buddy removed from " + bot.id)
 					bot.sendPacket(packet)
 				}
 			}
@@ -97,31 +107,20 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def sendPacketToMasterBot(packet: BaseServerPacket): Unit = {
-		log_master.debug("TO MASTER " + packet)
-		out.write(packet.getBytes)
+		logger.debug("TO MASTER " + packet)
+		masterBot.sendPacket(packet)
 	}
 
 	def startSlaveBots(): Unit = {
-		friendlist.synchronized {
+		buddyList.synchronized {
 			bots.foreach{ case (id, bot) =>
-				friendlist(bot) = mutable.Set[Long]()
+				buddyList(bot) = mutable.Set[Long]()
 				if (id != "main") {
-					log_master.info("starting proxy bot " + id)
+					logger.info("starting proxy bot " + id)
 					bot.start()
 				}
 			}
 		}
-	}
-
-	def readPacketFromMaster(): BaseClientPacket = {
-		val packetId = in.readUnsignedShort()
-		val packetLength = in.readUnsignedShort()
-		val payload = new Array[Byte](packetLength)
-		in.readFully(payload)
-
-		val packet: BaseClientPacket = clientPacketFactory.createInstance(packetId, payload)
-		log_master.debug("FROM MASTER " + packet.toString)
-		packet
 	}
 
 	def sendPacketToServer(packet: BaseClientPacket, botId: String): Unit = {
@@ -129,25 +128,25 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def addBuddy(packet: server.FriendUpdate, bot: BotManager): Unit = {
-		friendlist.synchronized {
-			friendlist.find(x => x._1 != bot && x._2.contains(packet.getCharId)) match {
+		buddyList.synchronized {
+			buddyList.find(x => x._1 != bot && x._2.contains(packet.getCharId)) match {
 				case Some(_) =>
 					// if buddy is already register on another bot, remove it from this one
-					log_master.info("duplicate buddy detected and removed on " + bot.getId + ": " + packet)
-					friendlist(bot).remove(packet.getCharId)
+					logger.info("duplicate buddy detected and removed on " + bot.id + ": " + packet)
+					buddyList(bot).remove(packet.getCharId)
 					bot.sendPacket(new FriendRemove(packet.getCharId))
 				case None =>
 					// otherwise forward packet to master bot
-					friendlist(bot) += packet.getCharId
+					buddyList(bot) += packet.getCharId
 					sendPacketToMasterBot(packet)
 			}
 		}
 	}
 
 	def removeBuddy(packet: server.FriendRemove, bot: BotManager): Unit = {
-		friendlist.synchronized {
-			if (friendlist(bot).contains(packet.getCharId)) {
-				friendlist(bot).remove(packet.getCharId)
+		buddyList.synchronized {
+			if (buddyList(bot).contains(packet.getCharId)) {
+				buddyList(bot).remove(packet.getCharId)
 				sendPacketToMasterBot(packet)
 			}
 		}
@@ -174,13 +173,13 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		}
 	}
 
-	def shutdown(): Unit = {
-		log_master.info("Shutting down client handler")
-		shouldStop = true
-		bots.foreach(_._2.close())
-		in.close()
-		out.close()
-		socket.close()
+	def close(): Unit = {
+		if (!shouldStop) {
+			shouldStop = true
+			logger.warn("closing client handler")
+			bots.foreach(_._2.close())
+			masterBot.close()
+		}
 	}
 
 	def isRunning(): Boolean = {

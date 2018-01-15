@@ -45,14 +45,13 @@ object Program {
 				// check to make sure everything is running
 				do {
 					Thread.sleep(5000)
-				} while (clientHandler.isRunning)
+				} while (clientHandler.isRunning())
 			} catch {
 				case e: Exception =>
 					log.error("master bot connection ended", e)
 			}
 
-			clientHandler.shutdown()
-			socket.close()
+			clientHandler.close()
 		}
 	}
 
