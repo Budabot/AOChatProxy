@@ -4,8 +4,8 @@ import java.net.Socket
 
 import com.jkbff.ao.tyrlib.chat.socket._
 import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, FriendRemove, FriendUpdate, LoginSelect}
-import com.jkbff.ao.tyrlib.packets.{ClientPacketFactory, ServerPacketFactory, server}
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
+import com.jkbff.ao.tyrlib.packets.{ClientPacketFactory, ServerPacketFactory, server}
 import org.apache.log4j.Logger._
 
 import scala.collection.mutable
@@ -45,20 +45,17 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 				val packet = masterBot.readPacket()
 				if (packet != null) {
 					logger.debug("FROM MASTER " + packet)
-				}
-
-				packet match {
-					case null =>
-							// do nothing
-					case p: LoginSelect =>
-						sendPacketToServer(p, "main")
-						startSlaveBots()
-					case p: FriendUpdate =>
-						addBuddy(p)
-					case p: FriendRemove =>
-						remBuddy(p)
-					case _ =>
-						sendPacketToServer(packet, "main")
+					packet match {
+						case p: LoginSelect =>
+							sendPacketToServer(p, "main")
+							startSlaveBots()
+						case p: FriendUpdate =>
+							addBuddy(p)
+						case p: FriendRemove =>
+							remBuddy(p)
+						case _ =>
+							sendPacketToServer(packet, "main")
+					}
 				}
 			}
 		} catch {
