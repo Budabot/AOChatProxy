@@ -4,8 +4,8 @@ import java.net.Socket
 
 import com.jkbff.ao.tyrlib.chat.socket._
 import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, FriendRemove, FriendUpdate, LoginSelect}
+import com.jkbff.ao.tyrlib.packets.server
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
-import com.jkbff.ao.tyrlib.packets.{ClientPacketFactory, ServerPacketFactory, server}
 import org.apache.log4j.Logger._
 
 import scala.collection.mutable
@@ -13,8 +13,8 @@ import scala.collection.mutable
 class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket) extends Thread with Closeable {
 	private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
 
-	val clientPacketFactory = new ClientPacketFactory
-	val serverPacketFactory = new ServerPacketFactory
+	val clientPacketFactory = new BasicClientPacketFactory
+	val serverPacketFactory = new BasicServerPacketFactory
 
 	val bots: Map[String, BotManager] = botInfo.map { case (id, info) =>
 		(id,
