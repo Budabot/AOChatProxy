@@ -2,7 +2,8 @@ package com.jkbff.ao.chatproxy
 
 import java.net.Socket
 
-import com.jkbff.ao.tyrlib.chat.socket.{AOClientSocket, PacketFactory}
+import com.jkbff.ao.tyrlib.chat.socket.AOClientSocket
+import com.jkbff.ao.tyrlib.packets.PacketFactory
 import com.jkbff.ao.tyrlib.packets.client.BaseClientPacket
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
 import org.apache.log4j.Logger.getLogger

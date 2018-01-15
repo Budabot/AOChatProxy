@@ -1,6 +1,6 @@
 package com.jkbff.ao.chatproxy
 
-import com.jkbff.ao.tyrlib.chat.socket.ServerPacketFactory
+import com.jkbff.ao.tyrlib.packets.ServerPacketFactory
 import com.jkbff.ao.tyrlib.packets.server._
 
 class BasicServerPacketFactory extends ServerPacketFactory {

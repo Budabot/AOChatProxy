@@ -1,7 +1,6 @@
 package com.jkbff.ao.chatproxy
 
 import com.jkbff.ao.tyrlib.chat.Helper
-import com.jkbff.ao.tyrlib.chat.socket.PacketFactory
 import com.jkbff.ao.tyrlib.packets._
 import com.jkbff.ao.tyrlib.packets.client.LoginSelect
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket

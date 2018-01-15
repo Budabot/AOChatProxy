@@ -4,7 +4,7 @@ import java.net.Socket
 
 import com.jkbff.ao.tyrlib.chat.socket._
 import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, FriendRemove, FriendUpdate, LoginSelect}
-import com.jkbff.ao.tyrlib.packets.server
+import com.jkbff.ao.tyrlib.packets.{ClientPacketFactory, ServerPacketFactory, server}
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
 import org.apache.log4j.Logger._
 
