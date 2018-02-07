@@ -1,16 +1,17 @@
 package com.jkbff.ao.chatproxy
 
 import java.net.Socket
+import java.util.concurrent.{ConcurrentLinkedQueue, LinkedBlockingQueue}
 
 import com.jkbff.ao.tyrlib.chat.socket._
-import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, FriendRemove, FriendUpdate, LoginSelect}
+import com.jkbff.ao.tyrlib.packets.client._
 import com.jkbff.ao.tyrlib.packets.server
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
 import org.apache.log4j.Logger._
 
 import scala.collection.mutable
 
-class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket) extends Thread with Closeable {
+class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket, spamBotSupport: Boolean) extends Thread with Closeable {
 	private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
 
 	val clientPacketFactory = new BasicClientPacketFactory
@@ -33,6 +34,9 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	val buddyList = new mutable.HashMap[BotManager, mutable.Set[Long]]
 	var shouldStop = false
 
+	lazy val privateMessageQueue = new LinkedBlockingQueue[PrivateMessageSend]()
+	lazy val privateMessageListeners = bots.filter(_._1 != "main").map{case (_, bot) => new PrivateMessageListener(bot, privateMessageQueue)}
+
 	// masterBot - connection to running Budabot (all requests originate from here)
 	// mainBot - connection to AO Servers on behalf of masterBot/Budabot (most requests that aren't buddy-related go to this connection)
 
@@ -40,6 +44,9 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		try {
 			bots("main").start()
 			masterBot.start()
+			if (spamBotSupport) {
+				privateMessageListeners.foreach(_.start())
+			}
 
 			while (!shouldStop) {
 				val packet = masterBot.readPacket()
@@ -53,6 +60,8 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 							addBuddy(p)
 						case p: FriendRemove =>
 							remBuddy(p)
+						case p: PrivateMessageSend if spamBotSupport && p.getRaw == "spam" =>
+							sendSpamTell(p)
 						case _ =>
 							sendPacketToServer(packet, "main")
 					}
@@ -101,6 +110,10 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 				}
 			}
 		}
+	}
+
+	def sendSpamTell(packet: PrivateMessageSend): Unit = {
+		privateMessageQueue.add(packet)
 	}
 
 	def sendPacketToMasterBot(packet: BaseServerPacket): Unit = {
@@ -174,6 +187,9 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		if (!shouldStop) {
 			shouldStop = true
 			logger.warn("closing client handler")
+			if (spamBotSupport) {
+				privateMessageListeners.foreach(_.close())
+			}
 			bots.foreach(_._2.close())
 			masterBot.close()
 		}

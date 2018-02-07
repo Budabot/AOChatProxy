@@ -37,7 +37,8 @@ object Program {
 					slaves,
 					properties.getProperty("serverAddress"),
 					Integer.parseInt(properties.getProperty("serverPortNumber")),
-					socket)
+					socket,
+					properties.getProperty("spamBotSupport", "false").trim.equalsIgnoreCase("true"))
 
 				clientHandler.setName("clientHandler")
 				clientHandler.start()
