@@ -1,6 +1,6 @@
 package com.jkbff.ao.chatproxy
 
-import com.jkbff.ao.tyrlib.chat.Helper
+import aoChatLib.Crypto
 import com.jkbff.ao.tyrlib.packets._
 import com.jkbff.ao.tyrlib.packets.client.LoginSelect
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
@@ -36,7 +36,7 @@ class SlaveBotManager(id: String, username: String, password: String, characterN
   def process(packet: server.BaseServerPacket): Unit = {
     packet match {
       case p: server.LoginSeed =>
-        val loginKey = Helper.generateLoginKey(username, password, p.getSeed)
+        val loginKey = Crypto.generateKey(username, password, p.getSeed)
         val loginRequest = new client.LoginRequest(0, username, loginKey)
         aoClientSocket.sendPacket(loginRequest)
       case p: server.CharacterList =>

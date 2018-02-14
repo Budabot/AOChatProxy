@@ -6,7 +6,7 @@ import com.jkbff.ao.tyrlib.packets.client._
 class BasicClientPacketFactory extends ClientPacketFactory {
   override def createInstance(packetId: Int, payload: Array[Byte]): BaseClientPacket = {
     packetId match {
-      case LoginSelect.TYPE | FriendUpdate.TYPE | FriendRemove.TYPE | PrivateMessageSend.TYPE =>
+      case LoginSelect.TYPE | BuddyAdd.TYPE | BuddyRemove.TYPE | PrivateMessageSend.TYPE =>
         super.createInstance(packetId, payload)
       case _ =>
         new GenericClientPacket(packetId, payload)
