@@ -4,11 +4,10 @@ import java.net.Socket
 import java.util.concurrent.LinkedBlockingQueue
 
 import com.jkbff.ao.tyrlib.chat.socket._
-import com.jkbff.ao.tyrlib.packets.client
-import com.jkbff.ao.tyrlib.packets.server
+import com.jkbff.ao.tyrlib.packets.{client, server}
 import org.apache.log4j.Logger._
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 
 class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, serverPort: Int, socket: Socket, spamBotSupport: Boolean) extends Thread with Closeable {
 	private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
@@ -33,6 +32,9 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	val buddyList = new mutable.HashMap[BotManager, mutable.Set[Long]]
 	var shouldStop = false
 
+	private val buddyListTaskQueue = new LinkedBlockingQueue[() => Unit]()
+	private val buddyListTaskListener = new BuddyListTaskListener(buddyListTaskQueue, this)
+
 	private lazy val privateMessageQueue = new LinkedBlockingQueue[client.PrivateMessageSend]()
 	private lazy val privateMessageListeners =
 		bots.filter(_._1 != "main").map{case (_, bot) => new PrivateMessageListener(bot, privateMessageQueue)}
@@ -47,6 +49,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 			if (spamBotSupport) {
 				privateMessageListeners.foreach(_.start())
 			}
+			buddyListTaskListener.start()
 
 			while (!shouldStop) {
 				val packet = masterBot.readPacket()
@@ -75,8 +78,13 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 		}
 	}
 
+	def addBuddyListTask(f: () => Unit): Unit = {
+		buddyListTaskQueue.add(f)
+	}
+
 	private def addBuddy(packet: client.BuddyAdd): Unit = {
-		buddyList.synchronized {
+		addBuddyListTask { () =>
+			logger.info("adding buddy: " + packet.getCharId)
 			val (bot, buddies) = buddyList.find { x =>
 				x._2.contains(packet.getCharId)
 			}.getOrElse {
@@ -94,7 +102,8 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	private def remBuddy(packet: client.BuddyRemove): Unit = {
-		buddyList.synchronized {
+		addBuddyListTask { () =>
+			logger.info("removing buddy: " + packet.getCharId)
 			buddyList.filter(_._2.contains(packet.getCharId)).foreach { case (bot, _) =>
 				logger.debug("buddy removed from " + bot.id)
 				bot.sendPacket(packet)
@@ -112,7 +121,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def startSlaveBots(): Unit = {
-		buddyList.synchronized {
+		addBuddyListTask { () =>
 			bots.foreach{ case (id, bot) =>
 				buddyList(bot) = mutable.Set[Long]()
 				if (id != "main") {
@@ -128,7 +137,8 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def buddyAdded(packet: server.BuddyAdded, bot: BotManager): Unit = {
-		buddyList.synchronized {
+		addBuddyListTask { () =>
+			logger.info("buddy added: " + packet.getCharId)
 			// remove buddy from other bots if it exists on them
 			buddyList.filter(x => x._1 != bot && x._2.contains(packet.getCharId)).foreach { x =>
 				logger.info("duplicate buddy detected and removed on " + x._1.id + ": " + packet)
@@ -143,7 +153,8 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def buddyRemoved(packet: server.BuddyRemoved, bot: BotManager): Unit = {
-		buddyList.synchronized {
+		addBuddyListTask { () =>
+			logger.info("buddy removed: " + packet.getCharId)
 			if (buddyList(bot).contains(packet.getCharId)) {
 				buddyList(bot).remove(packet.getCharId)
 				sendPacketToMasterBot(packet)
@@ -181,6 +192,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 			}
 			bots.foreach(_._2.close())
 			masterBot.close()
+			buddyListTaskListener.close()
 		}
 	}
 
