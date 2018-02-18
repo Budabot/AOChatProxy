@@ -1,3 +1,4 @@
 /.idea
 /target
 /bin
+/src/main/config/config.properties
