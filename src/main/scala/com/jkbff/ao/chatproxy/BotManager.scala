@@ -31,9 +31,7 @@ class BotManager(val id: String, serverAddress: String, serverPort: Int, serverP
   }
 
   def sendPacket(packet: BaseClientPacket): Unit = {
-    this.synchronized {
-      aoClientSocket.sendPacket(packet)
-    }
+    aoClientSocket.sendPacket(packet)
   }
 
   def close(): Unit = {
