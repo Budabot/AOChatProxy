@@ -2,3 +2,5 @@
 /target
 /bin
 /src/main/config/config.properties
+output.log*
+.settings/
