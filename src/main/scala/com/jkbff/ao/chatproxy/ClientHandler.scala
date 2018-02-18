@@ -1,7 +1,7 @@
 package com.jkbff.ao.chatproxy
 
 import java.net.Socket
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{Callable, LinkedBlockingQueue}
 
 import com.jkbff.ao.tyrlib.chat.socket._
 import com.jkbff.ao.tyrlib.packets.{client, server}
@@ -32,7 +32,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	val buddyList = new mutable.HashMap[BotManager, mutable.Set[Long]]
 	var shouldStop = false
 
-	private val buddyListTaskQueue = new LinkedBlockingQueue[() => Unit]()
+	private val buddyListTaskQueue = new LinkedBlockingQueue[Callable[Unit]]()
 	private val buddyListTaskListener = new BuddyListTaskListener(buddyListTaskQueue, this)
 
 	private lazy val privateMessageQueue = new LinkedBlockingQueue[client.PrivateMessageSend]()
@@ -79,12 +79,11 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 	}
 
 	def addBuddyListTask(f: () => Unit): Unit = {
-		buddyListTaskQueue.add(f)
+		buddyListTaskQueue.add(() => f())
 	}
 
 	private def addBuddy(packet: client.BuddyAdd): Unit = {
 		addBuddyListTask { () =>
-			logger.info("adding buddy: " + packet.getCharId)
 			val (bot, buddies) = buddyList.find { x =>
 				x._2.contains(packet.getCharId)
 			}.getOrElse {
@@ -92,7 +91,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 			}
 
 			if (buddies.size < 1000) {
-				logger.debug("buddy added to " + bot.id)
+				logger.debug("buddy added to " + bot.id + ": " + packet)
 				buddyList(bot) += packet.getCharId
 				bot.sendPacket(packet)
 			} else {
@@ -103,9 +102,8 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 
 	private def remBuddy(packet: client.BuddyRemove): Unit = {
 		addBuddyListTask { () =>
-			logger.info("removing buddy: " + packet.getCharId)
 			buddyList.filter(_._2.contains(packet.getCharId)).foreach { case (bot, _) =>
-				logger.debug("buddy removed from " + bot.id)
+				logger.debug("buddy removed from " + bot.id + ": " + packet)
 				bot.sendPacket(packet)
 			}
 		}
@@ -138,7 +136,6 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 
 	def buddyAdded(packet: server.BuddyAdded, bot: BotManager): Unit = {
 		addBuddyListTask { () =>
-			logger.info("buddy added: " + packet.getCharId)
 			// remove buddy from other bots if it exists on them
 			buddyList.filter(x => x._1 != bot && x._2.contains(packet.getCharId)).foreach { x =>
 				logger.info("duplicate buddy detected and removed on " + x._1.id + ": " + packet)
@@ -154,7 +151,6 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 
 	def buddyRemoved(packet: server.BuddyRemoved, bot: BotManager): Unit = {
 		addBuddyListTask { () =>
-			logger.info("buddy removed: " + packet.getCharId)
 			if (buddyList(bot).contains(packet.getCharId)) {
 				buddyList(bot).remove(packet.getCharId)
 				sendPacketToMasterBot(packet)

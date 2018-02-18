@@ -1,11 +1,11 @@
 package com.jkbff.ao.chatproxy
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{Callable, LinkedBlockingQueue, TimeUnit}
 
 import com.jkbff.ao.tyrlib.chat.socket.Closeable
 import org.apache.log4j.Logger.getLogger
 
-class BuddyListTaskListener[T](queue: LinkedBlockingQueue[T], onError: Closeable) extends Thread {
+class BuddyListTaskListener[T](queue: LinkedBlockingQueue[Callable[T]], onError: Closeable) extends Thread {
 
 	private val logger = getLogger(getClass)
 
@@ -16,7 +16,7 @@ class BuddyListTaskListener[T](queue: LinkedBlockingQueue[T], onError: Closeable
 			try {
 				val task = queue.poll(1, TimeUnit.SECONDS)
 				if (task != null) {
-					task
+					task.call()
 				}
 			} catch {
 				case e: Exception =>
