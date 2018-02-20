@@ -20,6 +20,7 @@ class SlaveBotManager(id: String, username: String, password: String, characterN
       while (!shouldStop) {
         if (System.currentTimeMillis() - lastSentPing > 60000) {
           aoClientSocket.sendPacket(new client.Ping("ping"))
+          lastSentPing = System.currentTimeMillis()
         }
         val packet = aoClientSocket.readPacket()
         if (packet != null) {
