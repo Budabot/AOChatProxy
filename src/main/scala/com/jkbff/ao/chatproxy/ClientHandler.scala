@@ -84,7 +84,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 
 	private def addBuddy(packet: client.BuddyAdd): Unit = {
 		addBuddyListTask { () =>
-			val (bot, buddies) = buddyList.find { x =>
+			val (bot, buddies) = buddyList.find { x: (BotManager, mutable.Set[Long]) =>
 				x._2.contains(packet.getCharId)
 			}.getOrElse {
 				buddyList.minBy(_._2.size)
@@ -95,7 +95,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 				buddyList(bot) += packet.getCharId
 				bot.sendPacket(packet)
 			} else {
-				logger.warn("Not bots available with room to add buddy")
+				logger.warn("No bots available with room to add buddy")
 			}
 		}
 	}

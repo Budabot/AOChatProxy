@@ -14,11 +14,13 @@ class BotManager(val id: String, serverAddress: String, serverPort: Int, serverP
   val aoClientSocket = new AOClientSocket("main", new Socket(serverAddress, serverPort), serverPacketFactory, clientHandler)
 
   override def run(): Unit = {
+    logger.debug("Starting bot manager for " + id)
     try {
       aoClientSocket.start()
       while(!shouldStop) {
         val packet = aoClientSocket.readPacket()
         if (packet != null) {
+          logger.debug("Received packet from " + id + ": " + packet)
           clientHandler.processPacket(packet, this)
         }
       }
@@ -31,12 +33,13 @@ class BotManager(val id: String, serverAddress: String, serverPort: Int, serverP
   }
 
   def sendPacket(packet: BaseClientPacket): Unit = {
+    logger.debug("Sending packet to " + id + ": " + packet)
     aoClientSocket.sendPacket(packet)
   }
 
   def close(): Unit = {
     shouldStop = true
-    logger.warn("closing Bot Manager " + id)
+    logger.warn("closing bot manager " + id)
     aoClientSocket.close()
   }
 }

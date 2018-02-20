@@ -13,6 +13,7 @@ class SlaveBotManager(id: String, username: String, password: String, characterN
   private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
 
   override def run(): Unit = {
+    logger.debug("Starting slave bot manager for " + id)
     try {
       aoClientSocket.start()
       lastSentPing = System.currentTimeMillis()
@@ -22,6 +23,7 @@ class SlaveBotManager(id: String, username: String, password: String, characterN
         }
         val packet = aoClientSocket.readPacket()
         if (packet != null) {
+          logger.debug("Received packet from " + id + ": " + packet)
           process(packet)
         }
       }
