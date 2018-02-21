@@ -2,12 +2,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.jkbff.ao</groupId>
 	<artifactId>aochatproxy</artifactId>
+	<name>AOChatProxy</name>
 	<version>2.5</version>
 
 	<properties>
 		<encoding>UTF-8</encoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
+		<releaseDirectory>${project.build.directory}/${project.name}-${project.version}</releaseDirectory>
 	</properties>
 
 	<repositories>
@@ -56,7 +58,7 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${project.build.directory}/release</outputDirectory>
+							<outputDirectory>${releaseDirectory}</outputDirectory>
 							<resources>
 								<resource>
 									<directory>src/main/config</directory>
@@ -84,7 +86,7 @@
 						<configuration>
 							<includeScope>runtime</includeScope>
 							<outputDirectory>
-								${project.build.directory}/release/lib
+								${releaseDirectory}/lib
 							</outputDirectory>
 						</configuration>
 					</execution>
@@ -160,7 +162,7 @@
 						</goals>
 						<configuration>
 							<outputDirectory>
-								${project.build.directory}/release/lib
+								${releaseDirectory}/lib
 							</outputDirectory>
 						</configuration>
 					</execution>
