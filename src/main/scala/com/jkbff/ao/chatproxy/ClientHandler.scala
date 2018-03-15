@@ -64,7 +64,7 @@ class ClientHandler(botInfo: Map[String, BotLoginInfo], serverAddress: String, s
 						case p: client.BuddyRemove =>
 							remBuddy(p)
 						case p: client.PrivateMessageSend if spamBotSupport && p.getRaw == "spam" =>
-							sendSpamTell(p)
+							sendSpamTell(new client.PrivateMessageSend(p.getCharId, p.getMessage, "\0"))
 						case _ =>
 							sendPacketToServer(packet, "main")
 					}
