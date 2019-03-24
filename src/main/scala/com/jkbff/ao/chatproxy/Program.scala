@@ -38,7 +38,8 @@ object Program {
 					properties.getProperty("serverAddress"),
 					Integer.parseInt(properties.getProperty("serverPortNumber")),
 					socket,
-					properties.getProperty("spamBotSupport", "false").trim.equalsIgnoreCase("true"))
+					properties.getProperty("spamBotSupport", "false").trim.equalsIgnoreCase("true"),
+					properties.getProperty("masterBotAuthPassthrough", "true").trim.equalsIgnoreCase("true"))
 
 				clientHandler.setName("clientHandler")
 				clientHandler.start()
@@ -56,13 +57,13 @@ object Program {
 		}
 	}
 
-	def getSlaveInfo(properties: Properties): Map[String, BotLoginInfo] = {
+	def getSlaveInfo(properties: Properties): Seq[(String, BotLoginInfo)] = {
 		Iterator.from(1).takeWhile(id => properties.getProperty("slave" + id + "_characterName") != null).map{ idx =>
-			"slave" + idx ->
+			("slave" + idx,
 				BotLoginInfo(
 					properties.getProperty("slave" + idx + "_username"),
 					properties.getProperty("slave" + idx + "_password"),
-					properties.getProperty("slave" + idx + "_characterName"))
-		}.toMap
-	}
+					properties.getProperty("slave" + idx + "_characterName")))
+		}
+	}.toSeq
 }
