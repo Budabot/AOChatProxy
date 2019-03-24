@@ -3,7 +3,7 @@
 	<groupId>com.jkbff.ao</groupId>
 	<artifactId>aochatproxy</artifactId>
 	<name>AOChatProxy</name>
-	<version>2.6</version>
+	<version>2.7</version>
 
 	<properties>
 		<encoding>UTF-8</encoding>
