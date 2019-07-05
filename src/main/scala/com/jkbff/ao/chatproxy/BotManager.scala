@@ -4,7 +4,7 @@ import java.net.Socket
 
 import com.jkbff.ao.tyrlib.chat.socket.AOClientSocket
 import com.jkbff.ao.tyrlib.packets.PacketFactory
-import com.jkbff.ao.tyrlib.packets.client.BaseClientPacket
+import com.jkbff.ao.tyrlib.packets.client.{BaseClientPacket, LoginSelect}
 import com.jkbff.ao.tyrlib.packets.server.BaseServerPacket
 import org.apache.log4j.Logger.getLogger
 
@@ -12,6 +12,7 @@ class BotManager(val id: String, serverAddress: String, serverPort: Int, serverP
   var shouldStop = false
   private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
   val aoClientSocket = new AOClientSocket("main", new Socket(serverAddress, serverPort), serverPacketFactory, clientHandler)
+  var charId: Long = 0
 
   override def run(): Unit = {
     logger.debug("Starting bot manager for " + id)
@@ -33,6 +34,10 @@ class BotManager(val id: String, serverAddress: String, serverPort: Int, serverP
   }
 
   def sendPacket(packet: BaseClientPacket): Unit = {
+    packet match {
+      case p: LoginSelect => charId = p.getCharId
+      case _ => // do nothing
+    }
     logger.debug("Sending packet to " + id + ": " + packet)
     aoClientSocket.sendPacket(packet)
   }

@@ -82,7 +82,7 @@ class ClientHandler(botInfo: Seq[(String, BotLoginInfo)], serverAddress: String,
 			val (bot, buddies) = buddyList.find { x: (BotManager, mutable.Set[Long]) =>
 				x._2.contains(packet.getCharId)
 			}.getOrElse {
-				buddyList.minBy(_._2.size)
+				buddyList.filter{x: (BotManager, mutable.Set[Long]) => x._1.charId != packet.getCharId}.minBy(_._2.size)
 			}
 
 			if (buddies.size < 1000) {
