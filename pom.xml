@@ -36,11 +36,6 @@
 			<artifactId>log4j</artifactId>
 			<version>1.2.16</version>
 		</dependency>
-		<dependency>
-			<groupId>com.jkbff.common</groupId>
-			<artifactId>scala-util</artifactId>
-			<version>1.2</version>
-		</dependency>
 	</dependencies>
 
 	<build>
