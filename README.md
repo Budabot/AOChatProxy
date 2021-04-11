@@ -1,3 +1,7 @@
+Notice: This project is now deprecated and will no longer recieve any more updates or releases. Tyrbot now has built-in support for chat proxy functionality so there is no longer a need for this project to exist.
+
+-- Tyrence
+
 # AOChatProxy
 Anarchy Online Proxy Bot that load-balances the friendlist across multiple characters so that other programs don't have to manage that
 
