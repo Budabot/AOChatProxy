@@ -10,7 +10,7 @@ import org.apache.log4j.Logger._
 
 import scala.collection.mutable
 
-class ClientHandler(botInfo: Seq[(String, BotLoginInfo)], serverAddress: String, serverPort: Int, socket: Socket, spamBotSupport: Boolean, masterBotAuthPassthrough: Boolean) extends Thread with Closeable {
+class ClientHandler(botInfo: Seq[(String, BotLoginInfo)], serverAddress: String, serverPort: Int, socket: Socket, spamBotSupport: Boolean, masterBotAuthPassthrough: Boolean, forwardTellsFromSlaves: Boolean) extends Thread with Closeable {
 	private val logger = getLogger("com.jkbff.ao.chatproxy.ClientHandler")
 
 	val clientPacketFactory = new BasicClientPacketFactory
@@ -171,6 +171,8 @@ class ClientHandler(botInfo: Seq[(String, BotLoginInfo)], serverAddress: String,
 				val loginKey = Crypto.generateKey(loginInfo.username, loginInfo.password, p.getSeed)
 				val loginRequest = new client.LoginRequest(0, loginInfo.username, loginKey)
 				sendPacketToServer(loginRequest, botId = "main")
+			case p: server.PrivateMessageReceive if forwardTellsFromSlaves =>
+				sendPacketToMasterBot(PrivateMessageReceive(p.charId, p.message, bot.id))
 			case _ if bot.id == "main" =>
 				// if packet came from main bot connection and
 				// if packet isn't a packet that requires special handling (cases above)

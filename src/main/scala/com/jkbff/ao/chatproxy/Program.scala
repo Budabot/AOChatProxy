@@ -39,7 +39,8 @@ object Program {
 					Integer.parseInt(properties.getProperty("serverPortNumber")),
 					socket,
 					properties.getProperty("spamBotSupport", "false").trim.equalsIgnoreCase("true"),
-					properties.getProperty("masterBotAuthPassthrough", "true").trim.equalsIgnoreCase("true"))
+					properties.getProperty("masterBotAuthPassthrough", "true").trim.equalsIgnoreCase("true"),
+					properties.getProperty("forwardTellsFromSlaves", "false").trim.equalsIgnoreCase("true"))
 
 				clientHandler.setName("clientHandler")
 				clientHandler.start()
